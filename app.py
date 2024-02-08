@@ -4,13 +4,33 @@ import datetime
 import pytz
 from dotmap import DotMap
 from keep_alive import keep_alive
+import schedule
+import threading
+import time
 
 app = Flask(__name__)
+
+def job():
+    print("Scheduled task running...")
+    # Your existing lastmatch() function code here
+
+def schedule_task():
+    # Schedule the job to run every minute
+    schedule.every(1).minutes.do(job)
+
+    # Run the scheduler continuously in a separate thread
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
 
 @app.route("/")
 def home():
     return "Use /lastmatch"
 
+
+@app.route("/lm/")
+@app.route("/lastmatch/")
 @app.route("/lm")
 @app.route("/lastmatch")
 def lastmatch():
@@ -122,4 +142,9 @@ def lastmatch():
 
 if __name__ == "__main__":
     keep_alive()  # Start the keep-alive server
+    
+    # Start the scheduler in a separate thread
+    scheduler_thread = threading.Thread(target=schedule_task)
+    scheduler_thread.start()
+
     app.run(host="localhost", port=8080, debug=True)

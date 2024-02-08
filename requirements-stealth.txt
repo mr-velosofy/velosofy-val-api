@@ -1,5 +1,6 @@
 Flask==3.0.2
 python-dotenv
+schedule
 watchdog
 certifi==2024.2.2
 charset-normalizer==3.3.2

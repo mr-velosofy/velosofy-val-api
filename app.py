@@ -10,19 +10,7 @@ import time
 
 app = Flask(__name__)
 
-def job():
-    print("Scheduled task running...")
-    # Your existing lastmatch() function code here
-
-def schedule_task():
-    # Schedule the job to run every minute
-    schedule.every(1).minutes.do(job)
-
-    # Run the scheduler continuously in a separate thread
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
-
+app.config['DEBUG_REFRESH'] = 10
 
 @app.route("/")
 def home():
@@ -33,6 +21,8 @@ def home():
 @app.route("/lastmatch/")
 @app.route("/lm")
 @app.route("/lastmatch")
+
+
 def lastmatch():
     external_url = 'https://api.henrikdev.xyz/valorant/v3/matches/ap/neonfrmbigbzar/sasta?size=1'
 
@@ -141,12 +131,3 @@ def lastmatch():
         response_message = f"Failed to fetch data from the external URL. Status Code: {response.status_code}"
         
     return response_message
-
-if __name__ == "__main__":
-    keep_alive()  # Start the keep-alive server
-    
-    # Start the scheduler in a separate thread
-    scheduler_thread = threading.Thread(target=schedule_task)
-    scheduler_thread.start()
-
-    app.run(host="localhost", port=8080, debug=True)

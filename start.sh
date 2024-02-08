@@ -1,3 +1,3 @@
 set -eux
 . /tmp/venv/bin/activate
-flask --app app run --port 5000
+flask --app app run --port $PORT --debug

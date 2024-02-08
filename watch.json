@@ -1,0 +1,15 @@
+{
+  "install": {
+    "include": [
+      "^requirements-stealth\\.txt$"
+    ]
+  },
+  "restart": {
+    "include": [
+      "^\\.env$",
+      "\\.py$",
+      "^start\\.sh$"
+    ]
+  },
+  "throttle": 500
+}

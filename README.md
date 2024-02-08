@@ -1,1 +1,0 @@
-# velosofy-val-api

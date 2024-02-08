@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "install": "python3 narflinger.py && sh install.sh",
+    "start": "sh start.sh"
+  },
+  "narflinger": {
+    "basenames": [
+      "zx8afr6kxipp78hpm3r578zlgq2a60zn-python3-3.10.11"
+    ]
+  }
+}

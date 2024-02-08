@@ -14,7 +14,7 @@ def home():
 @app.route("/lm")
 @app.route("/lastmatch")
 def lastmatch():
-    external_url = 'https://api.henrikdev.xyz/valorant/v3/matches/ap/velosussy/sus?size=1'
+    external_url = 'https://api.henrikdev.xyz/valorant/v3/matches/ap/ggmotato/onyt?size=1'
 
     # Fetch JSON data from the external URL
     response = requests.get(external_url)

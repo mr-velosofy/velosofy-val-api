@@ -1,7 +1,7 @@
 {
   "scripts": {
+    "install": "python3 narflinger.py && sh install.sh",
     "start": "sh start.sh"
-    
   },
   "narflinger": {
     "basenames": [

@@ -71,6 +71,8 @@ def lastmatch():
                 map_name = metadata.get("map", "Unknown Map")
                 server = metadata.get("cluster", "Unknown Map")
                 start_ts = metadata.get("game_start" , None)
+                game_len = metadata.get("game_length", None)
+                start_ts += game_len
                 
 
 

@@ -35,7 +35,7 @@ def lastmatch(query):
         id = id.replace(" ","")
         tag = tag.replace(" ","")
     else:
-        return f"Please Mention #tag."
+        return f"Mention ID Properly. Status Code: 400"
     
     external_url = f'https://api.henrikdev.xyz/valorant/v3/matches/ap/{decoded_query}?size=1'
 

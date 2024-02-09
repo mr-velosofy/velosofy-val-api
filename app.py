@@ -13,7 +13,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "Use /lastmatch"
+    return "Use lastmatch/ or lm/"
 
 @app.route("/lm/<query>")
 @app.route("/lastmatch/<query>")
@@ -80,8 +80,36 @@ def lastmatch(query):
 
                 # Extract player's character (agent) and KDA
                 character = player_info.character
-                kda = f"{player_info.stats.kills}/{player_info.stats.deaths}/{player_info.stats.assists}"
+                
+                stats = player_info.stats
+                kda = f"{stats.kills}K/{stats.deaths}D/{stats.assists}A"
+                hs = (stats.headshots/(stats.headshots + stats.bodyshots + stats.legshots))*100
+                hs = round(hs,1)
+                
+                
                 display_name = player_info.name.replace("  ", " ") + "#" + player_info.tag
+                
+                team = player_info.team
+                teams = json_dotmap.data[0].teams
+                if team == "Red":
+                    player_team = teams.red
+                    won = teams.red.rounds_won
+                    lost = teams.red.rounds_lost
+                else:
+                    player_team = teams.blue
+                    won = teams.blue.rounds_won
+                    lost = teams.blue.rounds_lost
+                    
+                
+                if teams.red.has_won == False and teams.blue.has_won == False:
+                    match_outcome = "Draw"
+                    
+                elif player_team.has_won == True:
+                    match_outcome = "Won"
+                
+                else:
+                    match_outcome = "Lose"
+                
 
                 # Time Since last match played
                 start_utc = datetime.datetime.fromtimestamp(start_ts, datetime.timezone.utc)
@@ -110,8 +138,9 @@ def lastmatch(query):
 
                 # Build the response
                 response_message = (
-                    f"{display_name} queued for {mode} in {server} server and {pick_or_got} {character} on {map_name}. "
-                    f"Their KDA: {kda} "
+                    f"{display_name} last queued for {mode} on {server} server and {pick_or_got} {character} on {map_name}"
+                    f"..Stats:{kda}..HS:{hs}%"
+                    f"..Outcome:{match_outcome}..Score:{won}-{lost}."
                     f"({time}{unit} ago)"
                 )
             else:
@@ -122,3 +151,4 @@ def lastmatch(query):
         response_message = f"Invalid Riot ID. Status Code: {response.status_code}"
 
     return response_message
+

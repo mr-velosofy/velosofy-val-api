@@ -139,8 +139,8 @@ def lastmatch(query):
                 # Build the response
                 response_message = (
                     f"{display_name} last queued for {mode} on {server} server and {pick_or_got} {character} on {map_name}"
-                    f"..Stats:{kda}..HS:{hs}%"
-                    f"..Outcome:{match_outcome}..Score:{won}-{lost}."
+                    f".. Stats:{kda}.. HS:{hs}%"
+                    f".. Outcome:{match_outcome}.. Score:{won}-{lost}.. "
                     f"({time}{unit} ago)"
                 )
             else:

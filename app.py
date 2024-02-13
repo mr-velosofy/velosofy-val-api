@@ -53,7 +53,8 @@ def lastmatch(query):
             
             reg = acc_dotmap.data.region
             break
-          
+        else:
+            return f"Invalid Riot ID"
         
     lm_url = f'https://api.henrikdev.xyz/valorant/v3/matches/{reg}/{decoded_query}?size=1'
     lmmr_url = f'https://api.henrikdev.xyz/valorant/v1/mmr/{reg}/{decoded_query}'
@@ -89,14 +90,19 @@ def lastmatch(query):
                 game_len = metadata.get("game_length", None)
                 
                 start_ts += game_len
-                show_score_and_outcome = True
+                show_score = False
+                show_mmr = False
                 # Agent was picked by player or given by game itself
                 pick_or_got = "picked"
                 if mode.lower() == "deathmatch" or mode.lower() == "escalation":
                     pick_or_got = "got"
-                    show_score_and_outcome = False
-                else:
+                    show_score = False
+                    
+                elif mode.lower() == "team deathmatch":
+                    show_score = True
                   
+                elif mode.lower() == "competitive":
+                    mmr_change = " "
                     if lmmr_data.status_code == 200:
                         # Parse JSON data
                         lmmr_json = lmmr_data.json()
@@ -104,14 +110,17 @@ def lastmatch(query):
                         lmmr_dotmap = DotMap(lmmr_json)
                         
                         mmr = int(lmmr_dotmap.data.mmr_change_to_last_game)
-                        mmr_change = " "
                         if mmr >= 0:
                             mmr_change = f"[Gained {mmr}RR].. "
                         else:
                             mmr *= -1
                             mmr_change = f"[Lost {mmr}RR].. "
                             
-                         
+                    show_mmr = True
+                    pick_or_got = "picked"
+                    
+                else:
+                    show_mmr = True
                     pick_or_got = "picked"
 
                     
@@ -177,8 +186,11 @@ def lastmatch(query):
                     elif days > 0:
                         t = days
                         unit = "d"
-                if show_score_and_outcome == False:
+                        
+                if show_score == False:
                     score = ""
+                    
+                if show_mmr == False:
                     mmr_change = ""
                     #match_outcome = ""
                     

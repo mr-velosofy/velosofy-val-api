@@ -30,31 +30,50 @@ def lastmatch(query):
         query = 'GGMotato#onyt'
 
     # Split the query into id and tag
+    query = unquote(query)
     if "#" in query:
         id, tag = query.split("#")
         id = id.replace(" ","")
         tag = tag.replace(" ","")
     else:
-        return f"Mention ID Properly. Status Code: 400"
-    
-    external_url = f'https://api.henrikdev.xyz/valorant/v3/matches/ap/{decoded_query}?size=1'
+        return f"Mention ID Properly or Try in a while"
+      
+      
+    regions = ['br', 'eu', 'kr', 'latam', 'na', 'ap']
+    i = 0 #for testing purpose
+    j = 0 #for testing purpose
+    for region in regions:
+        i += 1
+        acc_url = f'https://api.henrikdev.xyz/valorant/v1/account/{decoded_query}'   
+        acc_data = requests.get(acc_url)
+        if acc_data.status_code == 200:
+            j= +1
+            acc_json = acc_data.json()
+            acc_dotmap = DotMap(acc_json)
+            
+            reg = acc_dotmap.data.region
+            break
+          
+        
+    lm_url = f'https://api.henrikdev.xyz/valorant/v3/matches/{reg}/{decoded_query}?size=1'
+    lmmr_url = f'https://api.henrikdev.xyz/valorant/v1/mmr/{reg}/{decoded_query}'
 
     # Fetch JSON data from the external URL
-    response = requests.get(external_url)
+    lm_data = requests.get(lm_url)
+    lmmr_data = requests.get(lmmr_url)
     response_message = " "
 
-    if response.status_code == 200:
+    if lm_data.status_code == 200:
         # Parse JSON data
-        json_data = response.json()
-
+        lm_json = lm_data.json()
         # Convert JSON data to DotMap
-        json_dotmap = DotMap(json_data)
+        lm_dotmap = DotMap(lm_json)
 
         # Check if the data list is empty
-        if json_dotmap.data and json_dotmap.data[0].players.all_players:
+        if lm_dotmap.data and lm_dotmap.data[0].players.all_players:
             # Find player by name (case-insensitive and ignoring spaces)
             player_info = None
-            for player in json_dotmap.data[0].players.all_players:
+            for player in lm_dotmap.data[0].players.all_players:
                 # Compare names case-insensitive and ignoring spaces
                 if player.name.replace(" ", "").lower() == id.lower() and player.tag.replace(" ", "").lower() == tag.lower():
                     player_info = player
@@ -62,7 +81,7 @@ def lastmatch(query):
 
             if player_info is not None:
                 # Extracting useful metadata information
-                metadata = json_dotmap.data[0].metadata
+                metadata = lm_dotmap.data[0].metadata
                 mode = metadata.get("mode", "Unknown Mode")
                 map_name = metadata.get("map", "Unknown Map")
                 server = metadata.get("cluster", "Unknown Map")
@@ -70,27 +89,48 @@ def lastmatch(query):
                 game_len = metadata.get("game_length", None)
                 
                 start_ts += game_len
-
+                show_score_and_outcome = True
                 # Agent was picked by player or given by game itself
                 pick_or_got = "picked"
                 if mode.lower() == "deathmatch" or mode.lower() == "escalation":
                     pick_or_got = "got"
+                    show_score_and_outcome = False
                 else:
+                  
+                    if lmmr_data.status_code == 200:
+                        # Parse JSON data
+                        lmmr_json = lmmr_data.json()
+                        # Convert JSON data to DotMap
+                        lmmr_dotmap = DotMap(lmmr_json)
+                        
+                        mmr = int(lmmr_dotmap.data.mmr_change_to_last_game)
+                        mmr_change = " "
+                        if mmr >= 0:
+                            mmr_change = f"[Gained {mmr}RR].. "
+                        else:
+                            mmr *= -1
+                            mmr_change = f"[Lost {mmr}RR].. "
+                            
+                         
                     pick_or_got = "picked"
 
+                    
+                    
+                    
+                    
                 # Extract player's character (agent) and KDA
                 character = player_info.character
                 
                 stats = player_info.stats
                 kda = f"{stats.kills}K/{stats.deaths}D/{stats.assists}A"
-                hs = (stats.headshots/(stats.headshots + stats.bodyshots + stats.legshots))*100
-                hs = round(hs,1)
+               # hs = (stats.headshots/(stats.headshots + stats.bodyshots + stats.legshots))*100
+                #hs = round(hs,1)
                 
                 
-                display_name = player_info.name.replace("  ", " ") + "#" + player_info.tag
+                display_name = player_info.name.replace("  ", " ")
                 
                 team = player_info.team
-                teams = json_dotmap.data[0].teams
+                teams = lm_dotmap.data[0].teams
                 if team == "Red":
                     player_team = teams.red
                     won = teams.red.rounds_won
@@ -100,16 +140,18 @@ def lastmatch(query):
                     won = teams.blue.rounds_won
                     lost = teams.blue.rounds_lost
                     
+                score = f"Score:{won}-{lost}. "
                 
-                if teams.red.has_won == False and teams.blue.has_won == False:
-                    match_outcome = "Draw"
+#                 if teams.red.has_won == False and teams.blue.has_won == False:
+#                     match_outcome = "Draw"
                     
-                elif player_team.has_won == True:
-                    match_outcome = "Won"
+#                 elif player_team.has_won == True:
+#                     match_outcome = "Won"
                 
-                else:
-                    match_outcome = "Lose"
+#                 else:
+#                     match_outcome = "Lose"
                 
+#                 match_outcome = f"Outcome:{match_outcome}.."
 
                 # Time Since last match played
                 start_utc = datetime.datetime.fromtimestamp(start_ts, datetime.timezone.utc)
@@ -118,37 +160,41 @@ def lastmatch(query):
                 elapsed = now_ist - start_ist
 
                 if elapsed.total_seconds() < 60:
-                    time = int(elapsed.total_seconds())
+                    t = int(elapsed.total_seconds())
                     unit = "s"
                 elif elapsed.total_seconds() < 3600:
-                    time = int(elapsed.total_seconds() // 60)
+                    t = int(elapsed.total_seconds() // 60)
                     unit = "m"
                 elif elapsed.total_seconds() < 86400:
-                    time = round(elapsed.total_seconds() / 3600)
+                    t = round(elapsed.total_seconds() / 3600)
                     unit = "h"
                 else:
                     days = elapsed.days
                     weeks = days // 7
                     if weeks > 0:
-                        time = weeks
+                        t = weeks
                         unit = "w"
                     elif days > 0:
-                        time = days
+                        t = days
                         unit = "d"
-
+                if show_score_and_outcome == False:
+                    score = ""
+                    mmr_change = ""
+                    #match_outcome = ""
+                    
                 # Build the response
                 response_message = (
                     f"{display_name} last queued for {mode} on {server} server and {pick_or_got} {character} on {map_name}"
-                    f".. Stats:{kda}.. HS:{hs}%"
-                    f".. Outcome:{match_outcome}.. Score:{won}-{lost}.. "
-                    f"({time}{unit} ago)"
+                    f".. Stats:{kda}.."
+                    f" {score}{mmr_change}"
+                    f"({t}{unit} ago)"
                 )
             else:
                 response_message = f"Player {id}#{tag} not found."
         else:
-            response_message = "Player has not been playing from a long ago"
+            response_message = "The Player hasn't been playing for a Long time."
     else:
-        response_message = f"Invalid Riot ID. Status Code: {response.status_code}"
+        response_message = f"Check your ID and Try Again ! Code:{lm_data.status_code} "
 
     return response_message
 

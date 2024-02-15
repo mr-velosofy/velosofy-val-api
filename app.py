@@ -39,7 +39,7 @@ def lastmatch(query):
         return f"Mention ID Properly or Try in a while"
       
       
-    regions = ['br', 'eu', 'kr', 'latam', 'na', 'ap']
+    regions = [ 'br', 'eu', 'kr', 'latam', 'na','ap']
     i = 0 #for testing purpose
     j = 0 #for testing purpose
     for region in regions:
@@ -108,8 +108,11 @@ def lastmatch(query):
                         lmmr_json = lmmr_data.json()
                         # Convert JSON data to DotMap
                         lmmr_dotmap = DotMap(lmmr_json)
-                        
-                        mmr = int(lmmr_dotmap.data.mmr_change_to_last_game)
+                        try:
+                              
+                            mmr = int(lmmr_dotmap.data.mmr_change_to_last_game)
+                        except:
+                            mmr = 0
                         if mmr >= 0:
                             mmr_change = f"[Gained {mmr}RR].. "
                         else:
@@ -117,6 +120,7 @@ def lastmatch(query):
                             mmr_change = f"[Lost {mmr}RR].. "
                             
                     show_mmr = True
+                    show_score = True
                     pick_or_got = "picked"
                     
                 else:
@@ -149,7 +153,7 @@ def lastmatch(query):
                     won = teams.blue.rounds_won
                     lost = teams.blue.rounds_lost
                     
-                score = f"Score:{won}-{lost}. "
+                score = f"Score: {won}-{lost}. "
                 
 #                 if teams.red.has_won == False and teams.blue.has_won == False:
 #                     match_outcome = "Draw"
@@ -197,7 +201,7 @@ def lastmatch(query):
                 # Build the response
                 response_message = (
                     f"{display_name} last queued for {mode} on {server} server and {pick_or_got} {character} on {map_name}"
-                    f".. Stats:{kda}.."
+                    f".. Stats: {kda}.."
                     f" {score}{mmr_change}"
                     f"({t}{unit} ago)"
                 )

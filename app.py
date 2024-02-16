@@ -21,7 +21,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "Use lastmatch/ or lm/"
+    return "Contact @mr.velosofy on discord (will add ReadMe soon)"
 
 
   

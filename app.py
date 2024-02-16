@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request
 import requests
 import datetime
 import pytz
@@ -7,7 +7,15 @@ from keep_alive import keep_alive
 import schedule
 import threading
 import time
-from urllib.parse import unquote
+import json
+import subprocess
+from dotenv import load_dotenv
+import os
+from urllib.parse import unquote, parse_qs
+from chat_downloader.sites import YouTubeChatDownloader
+# from chat_downloader import ChatDownloader
+import scrapetube
+import subprocess
 
 app = Flask(__name__)
 
@@ -15,6 +23,8 @@ app = Flask(__name__)
 def home():
     return "Use lastmatch/ or lm/"
 
+
+  
 @app.route("/lm/<query>")
 @app.route("/lastmatch/<query>")
 def lastmatch(query):
@@ -92,6 +102,7 @@ def lastmatch(query):
                 start_ts += game_len
                 show_score = False
                 show_mmr = False
+                mmr_change = " "
                 # Agent was picked by player or given by game itself
                 pick_or_got = "picked"
                 if mode.lower() == "deathmatch" or mode.lower() == "escalation":
@@ -100,7 +111,10 @@ def lastmatch(query):
                     
                 elif mode.lower() == "team deathmatch":
                     show_score = True
-                  
+                    
+                elif mode.lower() == "custom game":
+                    show_score = True
+                    
                 elif mode.lower() == "competitive":
                     mmr_change = " "
                     if lmmr_data.status_code == 200:
@@ -214,3 +228,158 @@ def lastmatch(query):
 
     return response_message
 
+
+  
+def get_latest_live(channel_id):
+    vids = scrapetube.get_channel(channel_id, content_type="streams", limit=2, sleep=0)
+    live_found_flag = False
+    for vid in vids:
+        if (
+            vid["thumbnailOverlays"][0]["thumbnailOverlayTimeStatusRenderer"]["style"]
+            == "LIVE"
+        ):
+            live_found_flag = True
+            break
+    if not live_found_flag:
+        return None
+    vid = YouTubeChatDownloader().get_video_data(video_id=vid["videoId"])
+    return vid
+
+
+def load_credentials(filename='accounts.json'):
+    with open(filename, 'r') as f:
+        return json.load(f)
+accounts = load_credentials()
+
+
+@app.route("/rec/")
+@app.route("/record/")
+@app.route("/rec")
+@app.route("/record")
+def record():
+    try:
+        channel = parse_qs(request.headers["Nightbot-Channel"])
+        user = parse_qs(request.headers["Nightbot-User"])
+    except KeyError:
+        return "Not able to auth"
+    
+    channel_id = channel.get("providerId", [""])[0]
+    user = user.get("displayName", [""])[0]
+    latest_live = get_latest_live(channel_id)
+    if not latest_live:
+        return "No live stream found"
+    start_time = latest_live["start_time"] / 1000000
+    current_time = time.time()
+    stream_start_raw = start_time 
+    
+    found_account = None
+    for account in accounts:
+        if account["channel_id"] == channel_id:
+            found_account = account
+            break
+    
+    if found_account:
+        decoded_query = found_account["decoded_query"]
+        streamer_name = found_account["name"]
+    else:
+        return "Streamer is not registered!!"
+    
+    regions = ['br', 'eu', 'kr', 'latam', 'na', 'ap']
+    for region in regions:
+        acc_url = f'https://api.henrikdev.xyz/valorant/v1/account/{decoded_query}'
+        acc_data = requests.get(acc_url)
+        if acc_data.status_code == 200:
+            acc_json = acc_data.json()
+            acc_dotmap = DotMap(acc_json)
+            reg = acc_dotmap.data.region
+            break
+        else:
+            return "Invalid Riot ID"
+        
+    mmrhistory_url = f"https://api.henrikdev.xyz/valorant/v1/mmr-history/{reg}/{decoded_query}"
+
+    # Fetch JSON data from the external URL
+    mmrhistory_data = requests.get(mmrhistory_url)
+    response_message = ""
+
+    if mmrhistory_data.status_code == 200:
+        # Parse JSON data
+        mmrhistory_json = mmrhistory_data.json()
+        # Convert JSON data to DotMap
+        mmrhistory_dotmap = DotMap(mmrhistory_json)
+
+        # Provided date_raw for comparison
+        # stream_start_raw = 1691924163
+
+        # Initialize win and lost values
+        win = 0
+        lost = 0
+        total_mmr_change = 0
+
+        # Iterate over the data list
+        for data in mmrhistory_dotmap.data:
+            if data.date_raw > stream_start_raw:
+                if data.mmr_change_to_last_game > 0:
+                    total_mmr_change += data.mmr_change_to_last_game
+                    win += 1
+                elif data.mmr_change_to_last_game < 0:
+                    total_mmr_change += data.mmr_change_to_last_game
+                    lost += 1
+                    
+        if total_mmr_change >= 0:
+            up_or_down = "UP"
+        else:
+            up_or_down = "DOWN"
+            total_mmr_change *= -1
+            
+            
+            
+        if win+lost> 1:
+            match_or_matches = "matches"      
+        else:
+            match_or_matches = "match"
+            
+            
+        # response_message = f"{streamer_name} has Wins: {win}, Lost: {lost} {total_mmr_change}RR changed this stream"
+        if win+lost== 0:
+            response_message = f"{streamer_name} has not finished any valo match yet.."
+        else:
+            
+            response_message = f"{streamer_name} is {up_or_down} {total_mmr_change} RR... Won {win} and Lost {lost} {match_or_matches} this stream..."
+        # response_message = f"The RR {up_or_down} this stream is {total_mmr_change}, with {streamer_name} winning {win} and losing {lost} matches."
+    else:
+        response_message = f"Check your ID and Try Again ! Code: {mmrhistory_data.status_code}"
+
+    return response_message
+  
+  
+load_dotenv()
+
+@app.route('/reload/')
+@app.route('/reload/<pas>')
+def reload_server(pas = None):
+    
+    if pas == None:
+      return f"Please enter the password"
+    
+    pas = pas.lower()
+    if pas == os.getenv("reload_pas"):
+        pass
+    else:
+        return f"Incorrect password can't reload the server"
+      
+    try:
+        channel = parse_qs(request.headers["Nightbot-Channel"])
+        user = parse_qs(request.headers["Nightbot-User"])
+    except KeyError:
+        return "Not able to auth"
+    
+    user_id = user.get("providerId", [""])[0]
+    user = user.get("displayName", [""])[0]
+    
+    if user_id == os.getenv("reload_key"):
+        subprocess.Popen(["refresh"])
+        return f'Server reload requested by @{user}...'
+    
+    else:
+        return f"@{user},You can't use this buddy :)"

@@ -49,7 +49,7 @@ def lastmatch(query):
         return f"Mention ID Properly or Try in a while"
       
       
-    regions = [ 'br', 'eu', 'kr', 'latam', 'na','ap']
+    regions = ['ap','na','br','eu','kr','latam']
     i = 0 #for testing purpose
     j = 0 #for testing purpose
     for region in regions:

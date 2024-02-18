@@ -31,10 +31,16 @@ def home():
 def lastmatch(query = None):
     
         
+        
     if query != None:
         decoded_query = unquote(query)  # Decode the URL-encoded query
-        decoded_query = decoded_query.replace("#", "/")
-        decoded_query = decoded_query.replace(" ","")    # Replace / with # in the query parameter
+        
+        decoded_query = decoded_query.replace(" ","") 
+        if decoded_query == "":
+            query = None
+            
+        decoded_query = decoded_query.replace("#", "/") # Replace / with # in the query parameter
+           
     
     try:
         channel = parse_qs(request.headers["Nightbot-Channel"])

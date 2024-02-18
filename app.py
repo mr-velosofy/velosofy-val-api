@@ -317,7 +317,7 @@ def record():
         return "No live stream found"
     start_time = latest_live["start_time"] / 1000000
     current_time = time.time()
-    stream_start_raw = start_time 
+    stream_start_raw = start_time
     
     found_account = None
     for account in accounts:
@@ -327,21 +327,25 @@ def record():
     
     if found_account:
         decoded_query = found_account["decoded_query"]
+        reg = found_account["reg"]
         streamer_name = found_account["name"]
     else:
         return "Streamer is not registered!!"
     
-    regions = ['ap','na','br', 'eu', 'kr', 'latam']
-    for region in regions:
-        acc_url = f'https://api.henrikdev.xyz/valorant/v1/account/{decoded_query}'
-        acc_data = requests.get(acc_url)
-        if acc_data.status_code == 200:
-            acc_json = acc_data.json()
-            acc_dotmap = DotMap(acc_json)
-            reg = acc_dotmap.data.region
-            break
-        else:
-            return "Invalid Riot ID"
+    
+    #REGIONS ARE NOW FETCHED FROM accounts.json FOR SAVING TIME :)
+    #
+    # regions = ['ap','na','br', 'eu', 'kr', 'latam']
+    # for region in regions:
+    #     acc_url = f'https://api.henrikdev.xyz/valorant/v1/account/{decoded_query}'
+    #     acc_data = requests.get(acc_url)
+    #     if acc_data.status_code == 200:
+    #         acc_json = acc_data.json()
+    #         acc_dotmap = DotMap(acc_json)
+    #         reg = acc_dotmap.data.region
+    #         break
+    #     else:
+    #         return "Invalid Riot ID"
         
     mmrhistory_url = f"https://api.henrikdev.xyz/valorant/v1/mmr-history/{reg}/{decoded_query}"
 

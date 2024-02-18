@@ -24,15 +24,17 @@ def home():
     return "Contact @mr.velosofy on discord (will add ReadMe soon)"
 
 
-  
+@app.route("/lm/")
+@app.route("/lastmatch/")
 @app.route("/lm/<query>")
 @app.route("/lastmatch/<query>")
-def lastmatch(query):
+def lastmatch(query = None):
     
         
-    decoded_query = unquote(query)  # Decode the URL-encoded query
-    decoded_query = decoded_query.replace("#", "/")
-    decoded_query = decoded_query.replace(" ","")    # Replace / with # in the query parameter
+    if query != None:
+        decoded_query = unquote(query)  # Decode the URL-encoded query
+        decoded_query = decoded_query.replace("#", "/")
+        decoded_query = decoded_query.replace(" ","")    # Replace / with # in the query parameter
     
     try:
         channel = parse_qs(request.headers["Nightbot-Channel"])
@@ -40,7 +42,7 @@ def lastmatch(query):
     except KeyError:
         return "Not able to auth"
     
-    if not decoded_query:
+    if query == None:
         
         channel_id = channel.get("providerId", [""])[0]
         user = user.get("displayName", [""])[0]
@@ -406,7 +408,7 @@ def reload_server(pas = None):
         return "Not able to auth"
       
     if pas == None:
-      return f"Please enter the password"
+        return f"Please enter the password"
     
     pas = pas.lower()
     if pas == os.getenv("reload_pas"):

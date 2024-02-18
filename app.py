@@ -34,37 +34,63 @@ def lastmatch(query):
     decoded_query = decoded_query.replace("#", "/")
     decoded_query = decoded_query.replace(" ","")    # Replace / with # in the query parameter
     
+    try:
+        channel = parse_qs(request.headers["Nightbot-Channel"])
+        user = parse_qs(request.headers["Nightbot-User"])
+    except KeyError:
+        return "Not able to auth"
     
     if not decoded_query:
-        decoded_query = 'ggmotato/onyt'
-        query = 'GGMotato#onyt'
-
-    # Split the query into id and tag
-    query = unquote(query)
-    if "#" in query:
-        id, tag = query.split("#")
-        id = id.replace(" ","")
-        tag = tag.replace(" ","")
-    else:
-        return f"Mention ID Properly or Try in a while"
-      
-      
-    regions = ['ap','na','br','eu','kr','latam']
-    i = 0 #for testing purpose
-    j = 0 #for testing purpose
-    for region in regions:
-        i += 1
-        acc_url = f'https://api.henrikdev.xyz/valorant/v1/account/{decoded_query}'   
-        acc_data = requests.get(acc_url)
-        if acc_data.status_code == 200:
-            j= +1
-            acc_json = acc_data.json()
-            acc_dotmap = DotMap(acc_json)
-            
-            reg = acc_dotmap.data.region
-            break
+        
+        channel_id = channel.get("providerId", [""])[0]
+        user = user.get("displayName", [""])[0]
+        found_account = None
+        for account in accounts:
+            if account["channel_id"] == channel_id:
+                found_account = account
+                break
+    
+        if found_account:
+            decoded_query = found_account["decoded_query"]
+            reg = found_account["reg"]
         else:
-            return f"Invalid Riot ID"
+            return "Streamer is not registered!!"
+        
+        query = decoded_query.replace("/","#")
+        if "#" in query:
+            id, tag = query.split("#")
+            id = id.replace(" ","")
+            tag = tag.replace(" ","")
+        else:
+            return f"Mention ID Properly or Try in a while"
+        
+    else:
+    # Split the query into id and tag
+        query = unquote(query)
+        if "#" in query:
+            id, tag = query.split("#")
+            id = id.replace(" ","")
+            tag = tag.replace(" ","")
+        else:
+            return f"Mention ID Properly or Try in a while"
+        
+        
+        regions = ['br', 'eu', 'kr', 'latam', 'na', 'ap']
+        i = 0 #for testing purpose
+        j = 0 #for testing purpose
+        for region in regions:
+            i += 1
+            acc_url = f'https://api.henrikdev.xyz/valorant/v1/account/{decoded_query}'   
+            acc_data = requests.get(acc_url)
+            if acc_data.status_code == 200:
+                j= +1
+                acc_json = acc_data.json()
+                acc_dotmap = DotMap(acc_json)
+                
+                reg = acc_dotmap.data.region
+                break
+            else:
+                return f"Invalid Riot ID"
         
     lm_url = f'https://api.henrikdev.xyz/valorant/v3/matches/{reg}/{decoded_query}?size=1'
     lmmr_url = f'https://api.henrikdev.xyz/valorant/v1/mmr/{reg}/{decoded_query}'
@@ -94,6 +120,7 @@ def lastmatch(query):
                 # Extracting useful metadata information
                 metadata = lm_dotmap.data[0].metadata
                 mode = metadata.get("mode", "Unknown Mode")
+                queue = metadata.get("queue", "Unknown Queue")
                 map_name = metadata.get("map", "Unknown Map")
                 server = metadata.get("cluster", "Unknown Map")
                 start_ts = metadata.get("game_start", None)
@@ -102,6 +129,7 @@ def lastmatch(query):
                 start_ts += game_len
                 show_score = False
                 show_mmr = False
+                show_custom = False
                 mmr_change = " "
                 # Agent was picked by player or given by game itself
                 pick_or_got = "picked"
@@ -112,8 +140,14 @@ def lastmatch(query):
                 elif mode.lower() == "team deathmatch":
                     show_score = True
                     
+                    
                 elif mode.lower() == "custom game":
-                    show_score = True
+                    if queue.lower() == "deathmatch" or queue.lower() == "escalation":
+                        pick_or_got = "got"
+                        show_score = False
+                        show_custom = True
+                    else:   
+                        show_score = True
                     
                 elif mode.lower() == "competitive":
                     mmr_change = " "
@@ -211,10 +245,14 @@ def lastmatch(query):
                 if show_mmr == False:
                     mmr_change = ""
                     #match_outcome = ""
+                if show_custom ==  True:
+                    queue = f"({queue})"
+                else:
+                    queue = ""
                     
                 # Build the response
                 response_message = (
-                    f"{display_name} last queued for {mode} on {server} server and {pick_or_got} {character} on {map_name}"
+                    f"{display_name} last queued for {mode}{queue} on {server} server and {pick_or_got} {character} on {map_name}"
                     f".. Stats: {kda}.."
                     f" {score}{mmr_change}"
                     f"({t}{unit} ago)"
@@ -227,6 +265,7 @@ def lastmatch(query):
         response_message = f"Check your ID and Try Again ! Code:{lm_data.status_code} "
 
     return response_message
+
 
 
   
@@ -246,10 +285,10 @@ def get_latest_live(channel_id):
     return vid
 
 
-def load_credentials(filename='accounts.json'):
+def load_accounts(filename='accounts.json'):
     with open(filename, 'r') as f:
         return json.load(f)
-accounts = load_credentials()
+accounts = load_accounts()
 
 
 @app.route("/rec/")
@@ -284,7 +323,7 @@ def record():
     else:
         return "Streamer is not registered!!"
     
-    regions = ['br', 'eu', 'kr', 'latam', 'na', 'ap']
+    regions = ['ap','na','br', 'eu', 'kr', 'latam']
     for region in regions:
         acc_url = f'https://api.henrikdev.xyz/valorant/v1/account/{decoded_query}'
         acc_data = requests.get(acc_url)
@@ -309,13 +348,13 @@ def record():
         mmrhistory_dotmap = DotMap(mmrhistory_json)
 
         # Provided date_raw for comparison
-        # stream_start_raw = 1691924163
+        # stream_start_raw = 1708082310
 
         # Initialize win and lost values
         win = 0
         lost = 0
         total_mmr_change = 0
-
+        
         # Iterate over the data list
         for data in mmrhistory_dotmap.data:
             if data.date_raw > stream_start_raw:
@@ -355,10 +394,17 @@ def record():
   
 load_dotenv()
 
+@app.route('/reload')
 @app.route('/reload/')
 @app.route('/reload/<pas>')
 def reload_server(pas = None):
-    
+  
+    try:
+        channel = parse_qs(request.headers["Nightbot-Channel"])
+        user = parse_qs(request.headers["Nightbot-User"])
+    except KeyError:
+        return "Not able to auth"
+      
     if pas == None:
       return f"Please enter the password"
     
@@ -368,11 +414,6 @@ def reload_server(pas = None):
     else:
         return f"Incorrect password can't reload the server"
       
-    try:
-        channel = parse_qs(request.headers["Nightbot-Channel"])
-        user = parse_qs(request.headers["Nightbot-User"])
-    except KeyError:
-        return "Not able to auth"
     
     user_id = user.get("providerId", [""])[0]
     user = user.get("displayName", [""])[0]

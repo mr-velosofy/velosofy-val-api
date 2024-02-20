@@ -17,12 +17,13 @@ from chat_downloader.sites import YouTubeChatDownloader
 import scrapetube
 import subprocess
 
-app = Flask(__name__)
 
+app = Flask(__name__)
+        
 @app.route("/")
 def home():
-    return "Contact @mr.velosofy on discord (will add ReadMe soon)"
-
+    return "Contact <a href='https://discordapp.com/users/311519176655241217/' target='_blank'>@mr.velosofy</a> on discord (will add ReadMe soon)"
+  
 
 @app.route("/lm/")
 @app.route("/lastmatch/")
@@ -30,8 +31,7 @@ def home():
 @app.route("/lastmatch/<query>")
 def lastmatch(query = None):
     
-        
-        
+    
     if query != None:
         decoded_query = unquote(query)  # Decode the URL-encoded query
         
@@ -223,22 +223,21 @@ def lastmatch(query = None):
 #                 match_outcome = f"Outcome:{match_outcome}.."
 
                 # Time Since last match played
-                start_utc = datetime.datetime.fromtimestamp(start_ts, datetime.timezone.utc)
-                ist_tz, now_ist = pytz.timezone('Asia/Kolkata'), datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
-                start_ist = start_utc.astimezone(ist_tz)
-                elapsed = now_ist - start_ist
+                time_now = int(time.time())
+                elapsed = time_now - start_ts
+                # time_now = time_now
 
-                if elapsed.total_seconds() < 60:
-                    t = int(elapsed.total_seconds())
+                if elapsed < 60:
+                    t = int(elapsed)
                     unit = "s"
-                elif elapsed.total_seconds() < 3600:
-                    t = int(elapsed.total_seconds() // 60)
+                elif elapsed < 3600:
+                    t = int(elapsed // 60)
                     unit = "m"
-                elif elapsed.total_seconds() < 86400:
-                    t = round(elapsed.total_seconds() / 3600)
+                elif elapsed < 86400:
+                    t = round(elapsed / 3600)
                     unit = "h"
                 else:
-                    days = elapsed.days
+                    days = elapsed // 86400
                     weeks = days // 7
                     if weeks > 0:
                         t = weeks
@@ -393,7 +392,7 @@ def record():
             
         # response_message = f"{streamer_name} has Wins: {win}, Lost: {lost} {total_mmr_change}RR changed this stream"
         if win+lost== 0:
-            response_message = f"{streamer_name} has not finished any valo match yet.."
+            response_message = f"{streamer_name} has not finished any Compi match yet.."
         else:
             
             response_message = f"{streamer_name} is {up_or_down} {total_mmr_change} RR... Won {win} and Lost {lost} {match_or_matches} this stream..."

@@ -1,6 +1,7 @@
-from flask import Flask, request
+from flask import Flask, request , jsonify
 import requests
 import datetime
+from datetime import datetime
 import pytz
 from dotmap import DotMap
 from keep_alive import keep_alive
@@ -298,11 +299,11 @@ def load_accounts(filename='accounts.json'):
 accounts = load_accounts()
 
 
-@app.route("/rec/")
-@app.route("/record/")
-@app.route("/rec")
-@app.route("/record")
-def record():
+@app.route("/recb/")
+@app.route("/recordb/")
+@app.route("/recb")
+@app.route("/recordb")
+def record_bckp():
     try:
         channel = parse_qs(request.headers["Nightbot-Channel"])
         user = parse_qs(request.headers["Nightbot-User"])
@@ -401,6 +402,112 @@ def record():
         response_message = f"Check your ID and Try Again ! Code: {mmrhistory_data.status_code}"
 
     return response_message
+  
+  
+def iso8601_to_unix(timestamp_str):
+    # Convert ISO 8601 timestamp to a datetime object
+    timestamp_dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+
+    # Convert datetime object to Unix timestamp and return as an integer
+    return int(timestamp_dt.timestamp())
+
+
+@app.route("/rec/")
+@app.route("/record/")
+@app.route("/rec")
+@app.route("/record")
+def record():
+    
+    try:
+        channel = parse_qs(request.headers["Nightbot-Channel"])
+        user = parse_qs(request.headers["Nightbot-User"])
+    except KeyError:
+        return "Not able to auth"
+    
+    channel_id = channel.get("providerId", [""])[0]
+    user = user.get("displayName", [""])[0]
+    latest_live = get_latest_live(channel_id)
+    if not latest_live:
+        return "No live stream found"
+    start_time = latest_live["start_time"] / 1000000
+    current_time = time.time()
+    stream_start = start_time 
+      
+    found_account = None
+    for account in accounts:
+        if account["channel_id"] == channel_id:
+            found_account = account
+            break
+    
+    if found_account:
+        decoded_query = found_account["decoded_query"]
+        streamer_name = found_account["name"]
+        reg = found_account["reg"]
+    else:
+        return "Streamer is not registered!!"
+    
+    
+    lf_url = f'https://api.henrikdev.xyz/valorant/v1/lifetime/matches/{reg}/{decoded_query}?mode=competitive&size=15'
+    # stream_start = 1708520834
+    # win_count, draw_count, lose_count = analyze_matches(lf_url, stream_start)
+    response = requests.get(lf_url)
+    data = response.json()
+    win = 0
+    draw = 0
+    lose = 0
+
+    for match in data['data']:
+        match_start = iso8601_to_unix(match['meta']['started_at'])
+        if match_start >= stream_start:
+            player_team = match['stats']['team']
+            if player_team == 'Blue':
+                player_score = match['teams']['blue']
+                opponent_score = match['teams']['red']
+            else:
+                player_score = match['teams']['red']
+                opponent_score = match['teams']['blue']
+
+            if player_score > opponent_score:
+                win += 1
+            elif player_score == opponent_score:
+                draw += 1
+            else:
+                lose += 1
+    
+    mmrhistory_url = f"https://api.henrikdev.xyz/valorant/v1/mmr-history/{reg}/{decoded_query}"
+    # Fetch JSON data from the external URL
+    mmrhistory_data = requests.get(mmrhistory_url)
+    response_message = ""
+    if mmrhistory_data.status_code == 200:
+        # Parse JSON data
+        mmrhistory_json = mmrhistory_data.json()
+        # Convert JSON data to DotMap
+        mmrhistory_dotmap = DotMap(mmrhistory_json)
+        # Provided date_raw for comparison
+        # stream_start = 1708520834
+        total_mmr_change = 0
+        
+        # Iterate over the data list
+        for data in mmrhistory_dotmap.data:
+            if data.date_raw > stream_start:
+                if data.mmr_change_to_last_game > 0:
+                    total_mmr_change += data.mmr_change_to_last_game
+                elif data.mmr_change_to_last_game < 0:
+                    total_mmr_change += data.mmr_change_to_last_game                  
+        if total_mmr_change >= 0:
+            up_or_down = "UP"
+        else:
+            up_or_down = "DOWN"
+            total_mmr_change *= -1
+            
+        if win+lose+draw== 0:
+            response_message = f"{streamer_name} has not finished any valo match yet.."
+        else:
+            
+            response_message = f"{streamer_name} is {up_or_down} {total_mmr_change} RR, with {win} wins, {lose} losses, and {draw} draws this stream.."
+    # Return the response
+    return response_message
+
   
   
 load_dotenv()

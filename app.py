@@ -549,12 +549,31 @@ def edit_query(query = None):
         with open('accounts.json', 'r') as f:
             accounts = json.load(f)
         # Find the account with the matching channel ID
+        found = False
+        exists = False
         for account in accounts:
             if account["channel_id"] == channel_id:
+                if account["decoded_query"].lower() == query.lower():
+                    current = account["decoded_query"]
+                    current = current.replace("/","#")
+                    exists = True
+                    break
                 # Update the decoded_query for the matching channel
                 account["decoded_query"] = query
                 streamer = account["name"]
-                break   
+                found = True
+                break
+                
+        if exists == True:
+            return f"It's same as Current ID in database.."
+        else:
+            pass
+          
+        if found == False:
+            return f"Streamer is not registered!!"
+        else:
+            pass
+          
         # Save the updated accounts data back to the JSON file
         with open('accounts.json', 'w') as f:
             json.dump(accounts, f, indent=2)

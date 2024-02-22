@@ -512,6 +512,60 @@ def record():
   
 load_dotenv()
 
+@app.route("/edit/")
+@app.route("/edit/<query>")
+def edit_query(query = None):
+   
+    
+    try:
+        channel = parse_qs(request.headers["Nightbot-Channel"])
+        user = parse_qs(request.headers["Nightbot-User"])
+    except KeyError:
+        return "Not able to authenticate"
+
+    
+    if query != None:
+        query = unquote(query)  # Decode the URL-encoded query
+        query = query.replace(" ","") 
+        if query == "":
+            query = None 
+            
+            
+    if query == None:
+        return "Kindly mention an account to be updated with.."
+    else:
+        if '#' in query:
+            query = query.replace("#", "/")
+        else:
+            return f"Mention Properly [Id #tag].."
+        
+        
+    channel_id = channel.get("providerId", [""])[0]
+    user_id = user.get("providerId", [""])[0]
+    user_level = user.get("userLevel", [""])[0]
+    
+    if user_id == os.getenv("reload_key") or user_level.lower() == 'moderator' or user_level.lower() == 'owner':
+        # Load the accounts data from the JSON file
+        with open('accounts.json', 'r') as f:
+            accounts = json.load(f)
+        # Find the account with the matching channel ID
+        for account in accounts:
+            if account["channel_id"] == channel_id:
+                # Update the decoded_query for the matching channel
+                account["decoded_query"] = query
+                streamer = account["name"]
+                break   
+        # Save the updated accounts data back to the JSON file
+        with open('accounts.json', 'w') as f:
+            json.dump(accounts, f, indent=2)
+        query = query.replace("/","#")
+        subprocess.Popen(["refresh"])
+        return f"Account successfully updated to {query}..(30s downtime🙂)"
+      
+    else:
+        return "You are not authorized to edit"
+  
+
 @app.route('/reload')
 @app.route('/reload/')
 @app.route('/reload/<pas>')

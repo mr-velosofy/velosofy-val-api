@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap"
+    />
+    <!-- <title>Valorant Data</title> -->
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-family: Arial, sans-serif;
+        position: relative; /* Ensure relative positioning for absolute positioning inside */
+      }
+      h1 {
+        font-size: 2.5em;
+        color: #28b463;
+        margin-bottom: 0.5em;
+      }
+
+      .img-container {
+        position: relative;
+      }
+
+      img {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-bottom: 0px;
+      }
+
+      img.duplicate {
+        position: absolute;
+        top: 0;
+        left: 0;
+        opacity: 0.7; /* Set opacity as needed */
+      }
+
+      p {
+        font-size: 2.5em;
+        color: #333;
+        margin-top: 0px;
+        margin-bottom: 0px;
+        font-family: "Lilita One", cursive;
+      }
+
+      .color-input-container {
+        margin-top: 20px;
+        display: flex;
+        align-items: center;
+      }
+
+      .color-input {
+        margin-right: 10px;
+      }
+    </style>
+    <script>
+      // Function to refresh the page after 60 seconds
+      setInterval(function () {
+        location.reload();
+      }, 120000);
+
+      // Function to apply color from input field
+      function applyHexColor() {
+        var hexColor = document.getElementById("hex-color").value;
+        var p = document.querySelector("p");
+        p.style.color = hexColor;
+
+        // Store selected color in localStorage
+        localStorage.setItem("selectedColor", hexColor);
+      }
+
+      // Function to retrieve and apply stored color
+      function retrieveStoredColor() {
+        var storedColor = localStorage.getItem("selectedColor");
+        if (storedColor) {
+          var p = document.querySelector("p");
+          p.style.color = storedColor;
+          document.getElementById("hex-color").value = storedColor; // Set input value
+        }
+      }
+
+      // Call retrieveStoredColor function when the window is loaded
+      window.onload = function () {
+        retrieveStoredColor();
+      };
+    </script>
+  </head>
+  <body>
+    <div class="img-container">
+      <img src="{{ data.images.large }}" alt="Valorant Rank Icon" />
+      <img
+        class="duplicate"
+        src="{{ data.images.large }}"
+        alt="Valorant Rank Icon Duplicate"
+      />
+    </div>
+    <p>{{ data.ranking_in_tier }} RR</p>
+    <div class="color-input-container">
+      <input
+        type="text"
+        id="hex-color"
+        class="color-input"
+        placeholder="Enter hex code"
+        value="#ff0000"
+      />
+      <!-- Set default value -->
+      <button onclick="applyHexColor()">Apply</button>
+    </div>
+  </body>
+</html>

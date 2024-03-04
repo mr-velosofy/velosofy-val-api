@@ -1,4 +1,4 @@
-from flask import Flask, request , jsonify
+from flask import Flask, request , jsonify , render_template
 import requests
 import datetime
 from datetime import datetime
@@ -20,11 +20,27 @@ import subprocess
 
 
 app = Flask(__name__)
-        
+
+
+load_dotenv()
+def send_to_discord_webhook(webhook_url, message):
+    data = {
+        "content": message
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    response = requests.post(webhook_url, data=json.dumps(data), headers=headers)
+    if response.status_code != 200:
+        # Optionally, you can raise an exception here or handle the error in any other way
+        pass
+    
+    
 @app.route("/")
 def home():
     return "Contact <a href='https://discordapp.com/users/311519176655241217/' target='_blank'>@mr.velosofy</a> on discord (will add ReadMe soon)"
   
+
 
 @app.route("/lm/")
 @app.route("/lastmatch/")
@@ -52,6 +68,7 @@ def lastmatch(query = None):
     if query == None:
         
         channel_id = channel.get("providerId", [""])[0]
+        streamer = channel.get("displayName", [""][0])
         user = user.get("displayName", [""])[0]
         found_account = None
         for account in accounts:
@@ -75,6 +92,7 @@ def lastmatch(query = None):
         
     else:
     # Split the query into id and tag
+        streamer = channel.get("displayName", [""][0])
         query = unquote(query)
         if "#" in query:
             id, tag = query.split("#")
@@ -271,14 +289,18 @@ def lastmatch(query = None):
             response_message = "The Player hasn't been playing for a Long time."
     else:
         response_message = f"Check your ID and Try Again ! Code:{lm_data.status_code} "
-
+    streamer = str(streamer)
+    streamer = streamer.replace("'", "").replace('[', '')
+    streamer = streamer.replace("]","")
+    message = f"Lastmatch used on {streamer}'s channel"
+    send_to_discord_webhook(os.getenv("webhook_url"), message)
     return response_message
 
 
 
   
 def get_latest_live(channel_id):
-    vids = scrapetube.get_channel(channel_id, content_type="streams", limit=2, sleep=0)
+    vids = scrapetube.get_channel(channel_id, content_type="streams", limit=3, sleep=0)
     live_found_flag = False
     for vid in vids:
         if (
@@ -423,7 +445,7 @@ def record():
         user = parse_qs(request.headers["Nightbot-User"])
     except KeyError:
         return "Not able to auth"
-    
+    streamer = channel.get("displayName", [""][0])
     channel_id = channel.get("providerId", [""])[0]
     user = user.get("displayName", [""])[0]
     latest_live = get_latest_live(channel_id)
@@ -455,25 +477,33 @@ def record():
     win = 0
     draw = 0
     lose = 0
-
-    for match in data['data']:
-        match_start = iso8601_to_unix(match['meta']['started_at'])
-        if match_start >= stream_start:
-            player_team = match['stats']['team']
-            if player_team == 'Blue':
-                player_score = match['teams']['blue']
-                opponent_score = match['teams']['red']
-            else:
-                player_score = match['teams']['red']
-                opponent_score = match['teams']['blue']
-
-            if player_score > opponent_score:
-                win += 1
-            elif player_score == opponent_score:
-                draw += 1
-            else:
-                lose += 1
     
+    if data['status'] == 200:
+        for match in data['data']:
+            match_start = iso8601_to_unix(match['meta']['started_at'])
+            if match_start >= stream_start:
+                player_team = match['stats']['team']
+                if player_team == 'Blue':
+                    player_score = match['teams']['blue']
+                    opponent_score = match['teams']['red']
+                else:
+                    player_score = match['teams']['red']
+                    opponent_score = match['teams']['blue']
+
+                if player_score > opponent_score:
+                    win += 1
+                elif player_score == opponent_score:
+                    draw += 1
+                else:
+                    lose += 1
+    elif data['status'] == 404:
+        invalid = decoded_query.replace("/","#")
+        return f"{invalid} is Invalid Account.. Update it"
+    else:
+        status = data['status']
+        return f"Riot API seems to be down..{status}"
+        
+      
     mmrhistory_url = f"https://api.henrikdev.xyz/valorant/v1/mmr-history/{reg}/{decoded_query}"
     # Fetch JSON data from the external URL
     mmrhistory_data = requests.get(mmrhistory_url)
@@ -501,17 +531,27 @@ def record():
             total_mmr_change *= -1
             
         if win+lose+draw== 0:
-            response_message = f"{streamer_name} has not finished any valo match yet.."
+            response_message = f"{streamer_name} has not finished any compi match yet.."
         else:
             
-            response_message = f"{streamer_name} is {up_or_down} {total_mmr_change} RR, with {win} wins, {lose} losses, and {draw} draws this stream.."
+            response_message = f"{streamer_name} is {up_or_down} {total_mmr_change} RR, with {win} wins, {lose} losses and {draw} draws this stream.."
     # Return the response
+  
+    else:
+        response_message = f"Riot API seems to be down"
+    streamer = str(streamer)
+    streamer = streamer.replace("'", "").replace('[', '')
+    streamer = streamer.replace("]","")
+    message = f"Record used on {streamer}'s channel"
+    send_to_discord_webhook(os.getenv("webhook_url"), message)
     return response_message
+    
 
   
   
-load_dotenv()
 
+
+@app.route("/edit")
 @app.route("/edit/")
 @app.route("/edit/<query>")
 def edit_query(query = None):
@@ -521,7 +561,7 @@ def edit_query(query = None):
         channel = parse_qs(request.headers["Nightbot-Channel"])
         user = parse_qs(request.headers["Nightbot-User"])
     except KeyError:
-        return "Not able to authenticate"
+        return "Not able to Auth"
 
     
     if query != None:
@@ -537,7 +577,7 @@ def edit_query(query = None):
         if '#' in query:
             query = query.replace("#", "/")
         else:
-            return f"Mention Properly [Id #tag].."
+            return f"Mention ID Properly [Id #tag].."
         
         
     channel_id = channel.get("providerId", [""])[0]
@@ -565,7 +605,7 @@ def edit_query(query = None):
                 break
                 
         if exists == True:
-            return f"It's same as Current ID in database.."
+            return f"It's same as Current Acc in database.."
         else:
             pass
           
@@ -579,12 +619,29 @@ def edit_query(query = None):
             json.dump(accounts, f, indent=2)
         query = query.replace("/","#")
         subprocess.Popen(["refresh"])
-        return f"Account successfully updated to {query}..(30s downtime🙂)"
-      
+        # subprocess.run(['cat', 'accounts.json'])
+        # Example usage:
+        return f"Account successfully updated to {query}..(30s downtime🙂)"    
     else:
         return "You are not authorized to edit"
-  
 
+
+@app.route('/visual/<reg>/<id>/<tag>/')
+@app.route('/visual/<reg>/<id>/<tag>')
+def visual(reg = None , id = None , tag = None):
+    
+    url = f"https://api.henrikdev.xyz/valorant/v1/mmr/{reg}/{id}/{tag}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()["data"]
+        return render_template("visual.html", data=data)
+    elif response.status_code == 404:
+        return "Invalid Riot ID"
+    else:
+        return f"Something went wrong... :({response.status_code}"
+      
+
+      
 @app.route('/reload')
 @app.route('/reload/')
 @app.route('/reload/<pas>')

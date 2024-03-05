@@ -292,7 +292,7 @@ def lastmatch(query = None):
     streamer = str(streamer)
     streamer = streamer.replace("'", "").replace('[', '')
     streamer = streamer.replace("]","")
-    message = f"Lastmatch used on {streamer}'s channel"
+    message = f"* * Lastmatch used on {streamer}'s channel \n`Response: {response_message}`"
     send_to_discord_webhook(os.getenv("webhook_url"), message)
     return response_message
 
@@ -542,7 +542,7 @@ def record():
     streamer = str(streamer)
     streamer = streamer.replace("'", "").replace('[', '')
     streamer = streamer.replace("]","")
-    message = f"Record used on {streamer}'s channel"
+    message = f"* * Record used on {streamer}'s channel \n`Response: {response_message}`"
     send_to_discord_webhook(os.getenv("webhook_url"), message)
     return response_message
     

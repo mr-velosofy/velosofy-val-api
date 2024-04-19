@@ -1,0 +1,44 @@
+[
+  {
+    "name": "Motato",
+    "channel_id": "UCpDKbnkS_9kUpeUCy9tyXyg",
+    "decoded_query": "ggmotato/onyt",
+    "reg": "ap"
+  },
+  {
+    "name": "Bonzax",
+    "channel_id": "UC0QXT4gz74fOT7uQEqJ5iqQ",
+    "decoded_query": "bonzax/wise",
+    "reg": "ap"
+  },
+  {
+    "name": "HydraFlick",
+    "channel_id": "UCySJrnD7XS16fF4qLFSaNuw",
+    "decoded_query": "hydraflick/001",
+    "reg": "ap"
+  },
+  {
+    "name": "VibnRic",
+    "channel_id": "UC5XTxQsO3KapW09nOVE1TJQ",
+    "decoded_query": "vibnricyt/king",
+    "reg": "ap"
+  },
+  {
+    "name": "Harsh",
+    "channel_id": "UCZy7vibLOxrNyngoHJByZfw",
+    "decoded_query": "harsh/khel",
+    "reg": "ap"
+  },
+  {
+    "name": "Klurge",
+    "channel_id": "UCz-0rxzE7u2_GtaXH5I0Tfw",
+    "decoded_query": "klurge11/yuri",
+    "reg": "ap"
+  },
+  {
+    "name": "FleXGuy",
+    "channel_id": "UCjx7TNunoyeub4E2zhBky2Q",
+    "decoded_query": "FlexGuy/rizz",
+    "reg": "ap"
+  }
+]

@@ -16,8 +16,7 @@ from urllib.parse import unquote, parse_qs
 from chat_downloader.sites import YouTubeChatDownloader
 # from chat_downloader import ChatDownloader
 import scrapetube
-import subprocess
-
+import re
 
 app = Flask(__name__)
 
@@ -34,21 +33,79 @@ def send_to_discord_webhook(webhook_url, message):
     if response.status_code != 200:
         # Optionally, you can raise an exception here or handle the error in any other way
         pass
-    
-    
+
+
+  
 @app.route("/")
 def home():
     return "Contact <a href='https://discordapp.com/users/311519176655241217/' target='_blank'>@mr.velosofy</a> on discord (will add ReadMe soon)"
   
+# @app.route("/test")
+# def test():
+#     try:
+#         channel = parse_qs(request.headers["Nightbot-Channel"])
+#         user = parse_qs(request.headers["Nightbot-User"])
+#         url = parse_qs(request.headers["Nightbot-Response-Url"])
+#     except KeyError:
+#         return "Not able to auth"
+      
+#     message = f"user: {user} \nstreamer: {channel} \nurl: {url}"
+#     send_to_discord_webhook(os.getenv("webhook_url"), message)
+#     return "Message sent to discord <3"
+  
+@app.route("/rank/<region>/<id>/<tag>")
+@app.route("/rank/<region>/<id>/<tag>/")
+def rank(region = None,id = None , tag = None):
+    
+    
+    streamer = None
+    try:
+        channel = parse_qs(request.headers["Nightbot-Channel"])
+        streamer = channel.get("displayName", [""][0])
+        url = request.headers.get("Nightbot-Response-Url")
+    except:
+        pass
+    lb_url = f""
+    mmr_url = f'https://api.henrikdev.xyz/valorant/v1/mmr/{region}/{id}/{tag}'
 
+    # Fetch JSON data from the external URL
+    mmr_data = requests.get(mmr_url)
+    response_message = " "
 
+    if mmr_data.status_code == 200:
+        # Parse JSON data
+        mmr_json = mmr_data.json()
+        # Convert JSON data to DotMap
+        mmr_dotmap = DotMap(mmr_json)
+        
+        data = mmr_dotmap.data
+        
+        rank = data.currenttierpatched
+        rr = data.ranking_in_tier
+        last_mmr_change = data.mmr_change_to_last_game
+        response_message = f"{rank} - {rr}RR" 
+        
+    elif mmr_data.status_code == 429:
+        response_message = f"Error: Too Many Requests for Riot API!! Code:{mmr_data.status_code}"
+    else:
+        response_message = f"Check your ID and Try Again!! Code:{mmr_data.status_code}"
+        
+    if streamer != None:
+        streamer = str(streamer)
+        streamer = streamer.replace("'", "").replace('[', '')
+        streamer = streamer.replace("]","")
+        message = f"* * Rank used on {streamer}'s channel \n`Response: {response_message}`"
+        send_to_discord_webhook(os.getenv("webhook_url2"), message)
+    return response_message
+  
+  
 @app.route("/lm/")
 @app.route("/lastmatch/")
 @app.route("/lm/<query>")
 @app.route("/lastmatch/<query>")
 def lastmatch(query = None):
     
-    
+    is_streamer = False
     if query != None:
         decoded_query = unquote(query)  # Decode the URL-encoded query
         
@@ -62,18 +119,26 @@ def lastmatch(query = None):
     try:
         channel = parse_qs(request.headers["Nightbot-Channel"])
         user = parse_qs(request.headers["Nightbot-User"])
+       # url = request.headers.get("Nightbot-Response-Url")
     except KeyError:
         return "Not able to auth"
     
     if query == None:
         
+        
         channel_id = channel.get("providerId", [""])[0]
         streamer = channel.get("displayName", [""][0])
+        streamer = str(streamer)
+        streamer = streamer.replace("'", "").replace('[', '')
+        streamer = streamer.replace("]","")
+        
+        
         user = user.get("displayName", [""])[0]
         found_account = None
         for account in accounts:
             if account["channel_id"] == channel_id:
                 found_account = account
+                is_streamer = True
                 break
     
         if found_account:
@@ -93,6 +158,11 @@ def lastmatch(query = None):
     else:
     # Split the query into id and tag
         streamer = channel.get("displayName", [""][0])
+        streamer = str(streamer)
+        streamer = streamer.replace("'", "").replace('[', '')
+        streamer = streamer.replace("]","")
+        
+        
         query = unquote(query)
         if "#" in query:
             id, tag = query.split("#")
@@ -214,8 +284,10 @@ def lastmatch(query = None):
                # hs = (stats.headshots/(stats.headshots + stats.bodyshots + stats.legshots))*100
                 #hs = round(hs,1)
                 
-                
-                display_name = player_info.name.replace("  ", " ")
+                if is_streamer == False:
+                    display_name = player_info.name.replace("  ", " ")
+                else:
+                    display_name = streamer
                 
                 team = player_info.team
                 teams = lm_dotmap.data[0].teams
@@ -292,8 +364,10 @@ def lastmatch(query = None):
     streamer = str(streamer)
     streamer = streamer.replace("'", "").replace('[', '')
     streamer = streamer.replace("]","")
-    message = f"* * Lastmatch used on {streamer}'s channel \n`Response: {response_message}`"
+    message = f">>> **Lastmatch used on {streamer}'s channel ** \n`Response: {response_message}` \n"
     send_to_discord_webhook(os.getenv("webhook_url"), message)
+    
+    #requests.post(url, data={"message": response_message})
     return response_message
 
 
@@ -442,6 +516,7 @@ def record():
     
     try:
         channel = parse_qs(request.headers["Nightbot-Channel"])
+        #url = request.headers.get("Nightbot-Response-Url")
         user = parse_qs(request.headers["Nightbot-User"])
     except KeyError:
         return "Not able to auth"
@@ -544,17 +619,185 @@ def record():
     streamer = streamer.replace("]","")
     message = f"* * Record used on {streamer}'s channel \n`Response: {response_message}`"
     send_to_discord_webhook(os.getenv("webhook_url"), message)
+    #requests.post(url, data={"message": response_message})
     return response_message
     
 
+    
+    
+    
+def load_ttv_accounts(filename='.data/ttv_accounts.json'):
+    with open(filename, 'r') as f:
+        return json.load(f)
+ttv_accounts = load_ttv_accounts()
+
+
+def parse_time_string(time_string):
+    time_in_seconds = 0
+    time_units = {"hour": 3600, "hours": 3600, "minute": 60, "minutes": 60, "second": 1, "seconds": 1}
+    
+    # Extract numbers and units from the time string
+    matches = re.findall(r'(\d+)\s+(\w+)', time_string)
+    
+    for number, unit in matches:
+        time_in_seconds += int(number) * time_units[unit]
+    
+    return time_in_seconds
+
+def ttv_start_time(query):
+    try:
+        total_seconds = parse_time_string(query)
+        current_time_unix = int(time.time())
+        start_time_unix = current_time_unix - total_seconds
+        return start_time_unix
+    except Exception as e:
+        print("An error occurred while calculating start time:", str(e))
+        return None
+
+    
+    
+@app.route("/twitch/rec/")
+@app.route("/twitch/record/")
+@app.route("/twitch/rec/<query>")
+@app.route("/twitch/record/<query>")
+@app.route("/twitch/rec/<query>/")
+@app.route("/twitch/record/<query>/")
+def ttv_record(query = None):
   
+    
+    if query == None:
+        return "Command not added correctly"
+        
+    try:
+        channel = parse_qs(request.headers["Nightbot-Channel"])
+        url = request.headers.get("Nightbot-Response-Url")
+        user = parse_qs(request.headers["Nightbot-User"])
+    except KeyError:
+        return "Not able to auth"
+    
+
+    streamer = channel.get("displayName", [""][0])
+    channel_id = channel.get("providerId", [""])[0]
+    user = user.get("displayName", [""])[0]
+    streamer = str(streamer)
+    streamer = streamer.replace("'", "").replace('[', '')
+    streamer = streamer.replace("]","")
+      
+
+        
+    
+    
+    # return f"{query}"
+  
+      
+    found_account = None
+    for account in ttv_accounts:
+        if account["channel_id"] == channel_id:
+            found_account = account
+            break
+    
+    if found_account:
+        decoded_query = found_account["decoded_query"]
+        streamer_name = found_account["name"]
+        reg = found_account["reg"]
+    else:
+        return "Streamer is not registered!!"
+      
+      
+    if "not" in query:
+        return f" {streamer} is not live"
+      
+    else:
+        start_time = ttv_start_time(query)
+        stream_start = int(start_time)
+    
+    lf_url = f'https://api.henrikdev.xyz/valorant/v1/lifetime/matches/{reg}/{decoded_query}?mode=competitive&size=25'
+    # stream_start = 1711205457
+    # win_count, draw_count, lose_count = analyze_matches(lf_url, stream_start)
+    response = requests.get(lf_url)
+    data = response.json()
+    win = 0
+    draw = 0
+    lose = 0
+    
+    if data['status'] == 200:
+        for match in data['data']:
+            match_start = iso8601_to_unix(match['meta']['started_at'])
+            if match_start >= stream_start:
+                player_team = match['stats']['team']
+                if player_team == 'Blue':
+                    player_score = match['teams']['blue']
+                    opponent_score = match['teams']['red']
+                else:
+                    player_score = match['teams']['red']
+                    opponent_score = match['teams']['blue']
+
+                if player_score > opponent_score:
+                    win += 1
+                elif player_score == opponent_score:
+                    draw += 1
+                else:
+                    lose += 1
+    elif data['status'] == 404:
+        invalid = decoded_query.replace("/","#")
+        return f"{invalid} is Invalid Account.. Update it"
+    else:
+        status = data['status']
+        return f"Riot API seems to be down..{status}"
+        
+      
+    mmrhistory_url = f"https://api.henrikdev.xyz/valorant/v1/lifetime/mmr-history/{reg}/{decoded_query}?mode=competitive&size=25"
+    # Fetch JSON data from the external URL
+    mmrhistory_data = requests.get(mmrhistory_url)
+    response_message = ""
+    if mmrhistory_data.status_code == 200:
+        # Parse JSON data
+        mmrhistory_json = mmrhistory_data.json()
+        # Convert JSON data to DotMap
+        mmrhistory_dotmap = DotMap(mmrhistory_json)
+        # Provided date_raw for comparison
+        # stream_start = 1708520834
+        total_mmr_change = 0
+        
+        # Iterate over the data list
+        for data in mmrhistory_dotmap.data:
+            match_start = iso8601_to_unix(data.date)
+            if match_start >= stream_start:
+                if data.last_mmr_change > 0:
+                    total_mmr_change += data.last_mmr_change
+                elif data.last_mmr_change < 0:
+                    total_mmr_change += data.last_mmr_change
+        if total_mmr_change >= 0:
+            up_or_down = "UP"
+        else:
+            up_or_down = "DOWN"
+            total_mmr_change *= -1
+            
+        if win+lose+draw== 0:
+            response_message = f"{streamer_name} has not finished any compi match yet.."
+        else:
+            
+            response_message = f"{streamer_name} is {up_or_down} {total_mmr_change} RR, with {win} wins, {lose} losses and {draw} draws this stream.."
+    # Return the response
+  
+    else:
+        response_message = f"Riot API seems to be down"
+    streamer = str(streamer)
+    streamer = streamer.replace("'", "").replace('[', '')
+    streamer = streamer.replace("]","")
+    message = f"* * Record used on {streamer}'s channel \n`Response: {response_message}`"
+    send_to_discord_webhook(os.getenv("webhook_url"), message)
+    requests.post(url, data={"message": response_message})
+    return ""
+    
+
   
 
 
 @app.route("/edit")
 @app.route("/edit/")
 @app.route("/edit/<query>")
-def edit_query(query = None):
+def edit(query = None):
    
     
     try:
@@ -619,11 +862,87 @@ def edit_query(query = None):
             json.dump(accounts, f, indent=2)
         query = query.replace("/","#")
         subprocess.Popen(["refresh"])
-        # subprocess.run(['cat', 'accounts.json'])
+        subprocess.run(['cat', 'accounts.json'])
         # Example usage:
         return f"Account successfully updated to {query}..(30s downtime🙂)"    
     else:
         return "You are not authorized to edit"
+      
+      
+@app.route("/twitch/edit")
+@app.route("/twitch/edit/")
+@app.route("/twitch/edit/<query>")
+def twitch_edit(query = None):
+   
+    
+    try:
+        channel = parse_qs(request.headers["Nightbot-Channel"])
+        user = parse_qs(request.headers["Nightbot-User"])
+    except KeyError:
+        return "Not able to Auth"
+
+    
+    if query != None:
+        query = unquote(query)  # Decode the URL-encoded query
+        query = query.replace(" ","") 
+        if query == "":
+            query = None 
+            
+            
+    if query == None:
+        return "Kindly mention an account to be updated with.."
+    else:
+        if '#' in query:
+            query = query.replace("#", "/")
+        else:
+            return f"Mention ID Properly [Id #tag].."
+        
+        
+    channel_id = channel.get("providerId", [""])[0]
+    user_id = user.get("providerId", [""])[0]
+    user_level = user.get("userLevel", [""])[0]
+    
+    if user_id == os.getenv("reload_key") or user_level.lower() == 'moderator' or user_level.lower() == 'owner':
+        # Load the accounts data from the JSON file
+        with open('.data/ttv_accounts.json', 'r') as f:
+            ttv_accounts = json.load(f)
+        # Find the account with the matching channel ID
+        found = False
+        exists = False
+        for account in ttv_accounts:
+            if account["channel_id"] == channel_id:
+                if account["decoded_query"].lower() == query.lower():
+                    current = account["decoded_query"]
+                    current = current.replace("/","#")
+                    exists = True
+                    break
+                # Update the decoded_query for the matching channel
+                account["decoded_query"] = query
+                streamer = account["name"]
+                found = True
+                break
+                
+        if exists == True:
+            return f"It's same as Current Acc in database.."
+        else:
+            pass
+          
+        if found == False:
+            return f"Streamer is not registered!!"
+        else:
+            pass
+          
+        # Save the updated accounts data back to the JSON file
+        with open('.data/ttv_accounts.json', 'w') as f:
+            json.dump(ttv_accounts, f, indent=2)
+        query = query.replace("/","#")
+        subprocess.Popen(["refresh"])
+        subprocess.run(['cat', '.data/ttv_accounts.json'])
+        # Example usage:
+        return f"Account successfully updated to {query}..(30s downtime🙂)"    
+    else:
+        return "You are not authorized to edit"
+
 
 
 @app.route('/visual/<reg>/<id>/<tag>/')
@@ -672,3 +991,27 @@ def reload_server(pas = None):
     
     else:
         return f"@{user},You can't use this buddy :)"
+
+@app.route('/song')
+@app.route('/song/')
+def song():
+    song_url = os.getenv("spotify")
+    # song_url = 'https://groke.se/twitch/spotify/?39e6d7509604f73ee23b7098eb39e9b5'
+    song_data = requests.get(song_url).text
+    song_string = str(song_data)
+    start_quote_index = song_string.find('"')
+    end_quote_index = song_string.find('"', start_quote_index + 1)
+
+    if start_quote_index >= 0 and end_quote_index >= 0:
+        song_name = song_string[start_quote_index + 1:end_quote_index]
+
+        # Extracting the Artist
+        dash_index = song_string.find('-')
+        emoji = song_string[0:1]
+        artist = song_string[2:dash_index].strip()
+        response = f"{emoji} {song_name} - {artist}"
+    else:
+        response = "At the moment, no song is playing."
+        
+    return response
+  

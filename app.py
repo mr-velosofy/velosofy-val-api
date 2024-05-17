@@ -1,7 +1,7 @@
 from flask import Flask, request , jsonify , render_template
 import requests
 import datetime
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from dotmap import DotMap
 from keep_alive import keep_alive
@@ -67,9 +67,13 @@ def rank(region = None,id = None , tag = None):
         pass
     lb_url = f""
     mmr_url = f'https://api.henrikdev.xyz/valorant/v1/mmr/{region}/{id}/{tag}'
+    headers = {
+    'Authorization': os.getenv("hdev_key")
+    }
 
     # Fetch JSON data from the external URL
-    mmr_data = requests.get(mmr_url)
+    mmr_data = requests.get(mmr_url, headers=headers)
+    mmr_json = mmr_data.json()
     response_message = " "
 
     if mmr_data.status_code == 200:
@@ -86,9 +90,13 @@ def rank(region = None,id = None , tag = None):
         response_message = f"{rank} - {rr}RR" 
         
     elif mmr_data.status_code == 429:
-        response_message = f"Error: Too Many Requests for Riot API!! Code:{mmr_data.status_code}"
+        error = mmr_json['errors'][0]['message']
+        response_message = f"{error} Code:{mmr_data.status_code}"
     else:
-        response_message = f"Check your ID and Try Again!! Code:{mmr_data.status_code}"
+        error = mmr_json['errors'][0]['message']
+        if error.lower() == "not found":
+          error = "Check your ID and Try Again"
+        response_message = f"{error} Code:{mmr_data.status_code}"
         
     if streamer != None:
         streamer = str(streamer)
@@ -105,6 +113,9 @@ def rank(region = None,id = None , tag = None):
 @app.route("/lastmatch/<query>")
 def lastmatch(query = None):
     
+    headers = {
+    'Authorization': os.getenv("hdev_key")
+    }
     is_streamer = False
     if query != None:
         decoded_query = unquote(query)  # Decode the URL-encoded query
@@ -178,7 +189,7 @@ def lastmatch(query = None):
         for region in regions:
             i += 1
             acc_url = f'https://api.henrikdev.xyz/valorant/v1/account/{decoded_query}'   
-            acc_data = requests.get(acc_url)
+            acc_data = requests.get(acc_url,headers=headers)
             if acc_data.status_code == 200:
                 j= +1
                 acc_json = acc_data.json()
@@ -193,8 +204,8 @@ def lastmatch(query = None):
     lmmr_url = f'https://api.henrikdev.xyz/valorant/v1/mmr/{reg}/{decoded_query}'
 
     # Fetch JSON data from the external URL
-    lm_data = requests.get(lm_url)
-    lmmr_data = requests.get(lmmr_url)
+    lm_data = requests.get(lm_url,headers=headers)
+    lmmr_data = requests.get(lmmr_url,headers=headers)
     response_message = " "
 
     if lm_data.status_code == 200:
@@ -513,6 +524,9 @@ def iso8601_to_unix(timestamp_str):
 @app.route("/rec")
 @app.route("/record")
 def record():
+    headers = {
+    'Authorization': os.getenv("hdev_key")
+    }
     
     try:
         channel = parse_qs(request.headers["Nightbot-Channel"])
@@ -547,7 +561,7 @@ def record():
     lf_url = f'https://api.henrikdev.xyz/valorant/v1/lifetime/matches/{reg}/{decoded_query}?mode=competitive&size=15'
     # stream_start = 1708520834
     # win_count, draw_count, lose_count = analyze_matches(lf_url, stream_start)
-    response = requests.get(lf_url)
+    response = requests.get(lf_url,headers=headers)
     data = response.json()
     win = 0
     draw = 0
@@ -581,7 +595,7 @@ def record():
       
     mmrhistory_url = f"https://api.henrikdev.xyz/valorant/v1/mmr-history/{reg}/{decoded_query}"
     # Fetch JSON data from the external URL
-    mmrhistory_data = requests.get(mmrhistory_url)
+    mmrhistory_data = requests.get(mmrhistory_url,headers=headers)
     response_message = ""
     if mmrhistory_data.status_code == 200:
         # Parse JSON data
@@ -1015,3 +1029,199 @@ def song():
         
     return response
   
+@app.route("/r")
+@app.route("/r/")
+def r():
+    try:
+        channel = parse_qs(request.headers["Nightbot-Channel"])
+        user = parse_qs(request.headers["Nightbot-User"])
+    except KeyError:
+        return "Not able to auth"
+
+    streamer = channel.get("displayName", [""])[0]
+    channel_id = channel.get("providerId", [""])[0]
+    user = user.get("displayName", [""])[0]
+    latest_live = get_latest_live(channel_id)
+
+    if not latest_live:
+        return "No live stream found"
+
+    start_time = latest_live["start_time"] / 1000000
+    current_time = time.time()
+    stream_start = start_time 
+    # stream_start = 1713951060 
+
+    found_account = next((account for account in accounts if account["channel_id"] == channel_id), None)
+
+    if found_account:
+        decoded_query = found_account["decoded_query"]
+        streamer_name = found_account["name"]
+        reg = found_account["reg"]
+    else:
+        return "Streamer is not registered!!"
+
+    # Fetch MMR history first
+    mmrhistory_url = f"https://api.henrikdev.xyz/valorant/v1/lifetime/mmr-history/{reg}/{decoded_query}?mode=competitive&size=25"
+    mmrhistory_data = requests.get(mmrhistory_url)
+
+    if mmrhistory_data.status_code == 200:
+        mmrhistory_json = mmrhistory_data.json()
+        mmrhistory_dotmap = DotMap(mmrhistory_json)
+        total_mmr_change = 0
+        
+        for data in mmrhistory_dotmap.data:
+            match_start = iso8601_to_unix(data.date)
+            if match_start >= stream_start:
+                if data.last_mmr_change > 0:
+                    total_mmr_change += data.last_mmr_change
+                elif data.last_mmr_change < 0:
+                    total_mmr_change += data.last_mmr_change
+        
+        if total_mmr_change >= 0:
+            up_or_down = "UP"
+        else:
+            up_or_down = "DOWN"
+            total_mmr_change *= -1
+    else:
+        # Handle error fetching MMR history
+        return "Error fetching MMR history from Riot API"
+
+    lf_url = f'https://api.henrikdev.xyz/valorant/v1/lifetime/matches/{reg}/{decoded_query}?mode=competitive&size=25'
+    response = requests.get(lf_url)
+    data = response.json()
+    win = 0
+    draw = 0
+    lose = 0
+
+    if data['status'] == 200:
+        for match in data['data']:
+            match_start = iso8601_to_unix(match['meta']['started_at'])
+            if match_start >= stream_start:
+                # Check if the match timestamp is close to any in MMR history
+                match_in_mmr_history = False
+                for mmr_match in mmrhistory_dotmap.data:
+                    mmr_match_start = iso8601_to_unix(mmr_match.date)
+                    if abs(match_start - mmr_match_start) <= 20:
+                        match_in_mmr_history = True
+                        break
+
+                if match_in_mmr_history:
+                    player_team = match['stats']['team']
+                    if player_team == 'Blue':
+                        player_score = match['teams']['blue']
+                        opponent_score = match['teams']['red']
+                    else:
+                        player_score = match['teams']['red']
+                        opponent_score = match['teams']['blue']
+
+                    if player_score > opponent_score:
+                        win += 1
+                    elif player_score == opponent_score:
+                        draw += 1
+                    else:
+                        lose += 1
+
+    elif data['status'] == 404:
+        invalid = decoded_query.replace("/","#")
+        return f"{invalid} is Invalid Account.. Update it"
+    else:
+        status = data['status']
+        return f"Riot API seems to be down..{status}"
+
+    if win + lose + draw == 0:
+        response_message = f"Accurate walaa : {streamer_name} has not finished any compi match yet.."
+    else:
+        response_message = f"Accurate walaa : {streamer_name} is {up_or_down} {total_mmr_change} RR, with {win} wins, {lose} losses and {draw} draws this stream.."
+    
+    streamer = str(streamer)
+    streamer = streamer.replace("'", "").replace('[', '')
+    streamer = streamer.replace("]","")
+    message = f">>> Accurate Record used on {streamer}'s channel \n`Response: {response_message}`"
+    send_to_discord_webhook(os.getenv("webhook_url"), message)
+    
+    return response_message
+
+  
+  
+@app.route("/new")
+@app.route("/new/")
+def new():
+    try:
+        channel = parse_qs(request.headers["Nightbot-Channel"])
+    except KeyError:
+        return "Not able to auth"
+    channel_id = channel.get("providerId", [""])[0]
+    
+    vid = scrapetube.get_channel(channel_id=channel_id,content_type="videos", sort_by="newest", limit=1)
+    response = ""
+    for v in vid:
+        # print(v['thumbnail']['thumbnails'][0]['url'])
+        response += v['title']['runs'][0]['text']
+        response += f" : https://youtu.be/"+v['videoId']
+    
+    return response
+    
+    
+  
+
+def convert_to_local_time(date_str):
+    # Convert to datetime object
+    date_obj = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
+    # Convert to GMT+5:30 timezone
+    local_time = date_obj + timedelta(hours=5, minutes=30)
+    # Format the date
+    formatted_date = local_time.strftime("%dth %B (%I:%M %p)")
+    return formatted_date
+
+@app.route('/live')
+def live_match():
+    api_url = "https://api.henrikdev.xyz/valorant/v1/esports/schedule?region=international"
+    response = requests.get(api_url)
+    matches = response.json()['data']
+    
+    # Find in-progress match
+    for match in matches:
+        if match['state'] == 'inProgress':
+            league_name = match['league']['name']
+            team1_name = match['match']['teams'][0]['name']
+            team1_code = match['match']['teams'][0]['code']
+            team1_score = match['match']['teams'][0]['game_wins']
+            team2_name = match['match']['teams'][1]['name']
+            team2_code = match['match']['teams'][1]['code']
+            team2_score = match['match']['teams'][1]['game_wins']
+            game_type = match['match']['game_type']['type']
+            game_type_count = match['match']['game_type']['count']
+            
+            return f"Live Score: {team1_code} [{team1_score} - {team2_score}] {team2_code} ({game_type} {game_type_count})"
+
+    # If no match is in progress, return the last completed match
+    last_match = [match for match in matches if match['state'] == 'completed'][-1]
+    league_name = last_match['league']['name']
+    team1_name = last_match['match']['teams'][0]['name']
+    team1_code = last_match['match']['teams'][0]['code']
+    team1_score = last_match['match']['teams'][0]['game_wins']
+    team2_name = last_match['match']['teams'][1]['name']
+    team2_code = last_match['match']['teams'][1]['code']
+    team2_score = last_match['match']['teams'][1]['game_wins']
+    
+    return f"Last Completed Match: {league_name} - {team1_code} [{team1_score} - {team2_score}] {team2_code}"
+
+  
+@app.route('/upcoming')
+def upcoming_matches():
+    api_url = "https://api.henrikdev.xyz/valorant/v1/esports/schedule?region=international"
+    response = requests.get(api_url)
+    matches = response.json()['data']
+    
+    # Find upcoming matches
+    upcoming_matches_text = "No Upcoming Matches"
+    for match in matches:
+        if match['state'] == 'unstarted':
+            league_name = match['league']['name']
+            date = convert_to_local_time(match['date'])
+            team1_name = match['match']['teams'][0]['name']
+            team2_name = match['match']['teams'][1]['name']
+            game_type = match['match']['game_type']['type']
+            game_type_count = match['match']['game_type']['count']
+            upcoming_matches_text = f"Upcoming {league_name} match on {date} between {team1_name} and {team2_name} ({game_type} {game_type_count})"
+    return upcoming_matches_text

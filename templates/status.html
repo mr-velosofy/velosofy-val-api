@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Status Page</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        background-color: #1e1e1e;
+        color: white;
+        font-family: Arial, sans-serif;
+      }
+      .status-header {
+        text-align: center;
+        margin: 20px 0;
+      }
+      .status-section {
+        background-color: #2e2e2e;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 20px;
+      }
+      .status-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .status-bar {
+        display: flex;
+        align-items: center;
+        margin: 10px 0;
+      }
+      .status-bar .label {
+        flex: 1;
+      }
+      .status-bar .bar {
+        flex: 8;
+        display: flex;
+        height: 20px;
+        margin-left: 10px;
+        border-radius: 5px;
+        overflow: hidden;
+      }
+      .status-bar .bar div {
+        flex: 1;
+        margin-right: 2px;
+      }
+      .status-bar .bar .up {
+        background-color: green;
+      }
+      .status-bar .bar .down {
+        background-color: red;
+      }
+      .status-bar .bar .request-failed {
+        background-color: orange;
+      }
+      .status-bar .bar div:hover::after {
+        content: attr(data-time) " - Ping: " attr(data-ping) "ms";
+        position: absolute;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 5px;
+        border-radius: 5px;
+        top: 250px;
+        white-space: nowrap;
+        z-index: 10;
+        opacity: 0;
+        transform: translateX(-50%);
+        transition: opacity 0.7s ease;
+      }
+      .status-bar .bar div:hover::after {
+        opacity: 1;
+      }
+      .last-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+      }
+      .last {
+        font-size: 14px;
+      }
+      #last-updated{
+        font-size:14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="status-header">
+        <h1>Monitors</h1>
+        <p id="last-updated"></p>
+      </div>
+      <div class="status-section">
+        <div class="status-title">
+          <h2>APIs</h2>
+          <div class="uptime" id="uptime">Loading...</div>
+        </div>
+        <div class="status-bar">
+          <div class="label">Base API</div>
+          <div class="bar" id="status-bar">
+            <!-- Status bars will be inserted here by JavaScript -->
+          </div>
+        </div>
+      </div>
+      <div class="last-container">
+        <div class="last">Last 30 Mins (min/block)</div>
+      </div>
+    </div>
+
+    <script>
+      async function fetchData() {
+        const response = await fetch("/status");
+        return response.json();
+      }
+
+      function getStatusClass(status) {
+        if (status === 1) return "up";
+        if (status === 0) return "down";
+        return "request-failed";
+      }
+
+      function calculateUptime(data) {
+        const total = data.length;
+        const up = data.filter((entry) => entry.status === 1).length;
+        const uptime = ((up / total) * 100).toFixed(1); // Round to 1 decimal place
+        return uptime.replace(/\.0$/, ''); // Remove trailing .0 if present
+      }
+
+      function convertUTCToIST(utcDate) {
+        const date = new Date(utcDate);
+        // UTC offset for IST is +5:30 hours
+        const istOffset = 5.5 * 60 * 60 * 1000;
+        const istTime = new Date(date.getTime() + istOffset);
+        return istTime.toLocaleString();
+      }
+
+      async function renderStatusBar() {
+        const data = await fetchData();
+        const statusBar = document.getElementById("status-bar");
+        const lastUpdated = document.getElementById("last-updated");
+        const uptimeElement = document.getElementById("uptime");
+
+        // Clear existing bars
+        statusBar.innerHTML = "";
+
+        // Calculate uptime
+        const uptime = calculateUptime(data);
+        uptimeElement.textContent = `${uptime}% uptime`;
+
+        // Get the last updated time in IST
+        const lastTime = convertUTCToIST(data[data.length - 1].time);
+        lastUpdated.textContent = `Last updated on ${lastTime} (IST)`;
+
+        // Render status bars
+        data.forEach((entry) => {
+          const div = document.createElement("div");
+          div.className = getStatusClass(entry.status);
+          div.setAttribute("data-time", entry.time);
+          div.setAttribute("data-ping", entry.ping);
+          statusBar.appendChild(div);
+        });
+      }
+
+      renderStatusBar();
+    </script>
+  </body>
+</html>

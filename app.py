@@ -977,12 +977,16 @@ def visual(reg = None , id = None , tag = None):
         mmr_data = mmr_data.json()
         rank_data = rank_data.json()
         
-        rank_image = mmr_data['data']['images']['large']
-        current_mmr = mmr_data['data']['ranking_in_tier']
+        current_mmr = f"{mmr_data['data']['ranking_in_tier']} RR"
         current_tier = mmr_data['data']['currenttier']
         
+        if current_tier == None or current_tier == 0:
+            current_tier = 0
+            current_mmr = ""
+            
         for tier in rank_data['data']['tiers']:
-            if current_tier == tier['tier']:
+            if tier['tier'] == current_tier:
+                rank_image = tier['largeIcon']
                 color = "#"
                 color += tier['color'][:6]
                 BgColor = "#"
@@ -994,12 +998,14 @@ def visual(reg = None , id = None , tag = None):
             "color" : color,
             "bgcolor" : BgColor
         }
+        print(rank_image)
         return render_template("visual.html", data=data)
     elif mmr_data.status_code == 404:
         return "Invalid Riot ID"
     else:
         return f"Something went wrong... :({mmr_data.status_code}"
       
+
 
       
 @app.route('/reload')

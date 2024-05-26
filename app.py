@@ -968,16 +968,37 @@ def twitch_edit(query = None):
 @app.route('/visual/<reg>/<id>/<tag>')
 def visual(reg = None , id = None , tag = None):
     header = {'Authorization' : os.getenv("hdev_key")}
+    mmr_url = f"https://api.henrikdev.xyz/valorant/v1/mmr/{reg}/{id}/{tag}"
+    rank_url = f"https://valorant-api.com/v1/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04"
     
-    url = f"https://api.henrikdev.xyz/valorant/v1/mmr/{reg}/{id}/{tag}"
-    response = requests.get(url,headers=header)
-    if response.status_code == 200:
-        data = response.json()["data"]
+    mmr_data = requests.get(mmr_url,headers=header)
+    rank_data = requests.get(rank_url)
+    if mmr_data.status_code == 200:
+        mmr_data = mmr_data.json()
+        rank_data = rank_data.json()
+        
+        rank_image = mmr_data['data']['images']['large']
+        current_mmr = mmr_data['data']['ranking_in_tier']
+        current_tier = mmr_data['data']['currenttier']
+        
+        for tier in rank_data['data']['tiers']:
+            if current_tier == tier['tier']:
+                color = "#"
+                color += tier['color'][:6]
+                BgColor = "#"
+                BgColor += tier['backgroundColor'][:6]
+                
+        data = {
+            "rank_image" : rank_image,
+            "current_mmr" : current_mmr,
+            "color" : color,
+            "bgcolor" : BgColor
+        }
         return render_template("visual.html", data=data)
-    elif response.status_code == 404:
+    elif mmr_data.status_code == 404:
         return "Invalid Riot ID"
     else:
-        return f"Something went wrong... :({response.status_code}"
+        return f"Something went wrong... :({mmr_data.status_code}"
       
 
       

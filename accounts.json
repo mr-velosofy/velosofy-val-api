@@ -46,5 +46,11 @@
     "channel_id": "UCEkb_-kR8TTvcBMZerY6vQw",
     "decoded_query": "ggpaul/0409",
     "reg": "ap"
+  },
+  {
+    "name": "MadCap",
+    "channel_id": "UCl1IwlMh87GZbMvrUZfHkwA",
+    "decoded_query": "madcapyt/lpcex",
+    "reg": "ap"
   }
 ]

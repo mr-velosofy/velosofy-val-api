@@ -13,3 +13,4 @@ pytz
 datetime
 scrapetube
 chat-downloader
+pymongo

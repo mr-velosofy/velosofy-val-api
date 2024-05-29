@@ -1,0 +1,1 @@
+![Uptime Badge](https://velosofy.betteruptime.com/badge?theme=dark)

@@ -1,1 +1,1 @@
-![Uptime Badge](https://velosofy.betteruptime.com/badge?theme=dark)
+[![Better Stack Badge](https://uptime.betterstack.com/status-badges/v3/monitor/1cqb1.svg)](https://uptime.betterstack.com/?utm_source=status_badge)

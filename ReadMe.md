@@ -1,1 +1,1 @@
-![Website](https://img.shields.io/website?url=https%3A%2F%2Fvelosofy-val-api.glitch.me%2F&up_message=Up&up_color=Green&down_message=Down&down_color=Red&style=flat&label=API)
+[![Better Stack Badge](https://uptime.betterstack.com/status-badges/v1/monitor/1cqb1.svg)](https://uptime.betterstack.com/?utm_source=status_badge)
